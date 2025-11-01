@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Compilador netSimLang</title>
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval';">
+
+<style>
+    :root {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f5f5;
+        --bg-editor: #ffffff;
+        --bg-output: #1e1e1e;
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-output: #d4d4d4;
+        --border-color: #d1d1d1;
+        --button-bg: #007acc;
+        --button-hover: #005a9e;
+        --line-number-bg: #f0f0f0;
+        --line-number-text: #858585;
+        --shadow: rgba(0, 0, 0, 0.1);
+    }
+
+    [data-theme="dark"] {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #252526;
+        --bg-editor: #1e1e1e;
+        --bg-output: #0d0d0d;
+        --text-primary: #d4d4d4;
+        --text-secondary: #9d9d9d;
+        --text-output: #d4d4d4;
+        --border-color: #3e3e3e;
+        --button-bg: #0e639c;
+        --button-hover: #1177bb;
+        --line-number-bg: #1e1e1e;
+        --line-number-text: #858585;
+        --shadow: rgba(0, 0, 0, 0.4);
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+    .header {
+        background-color: var(--bg-secondary);
+        padding: 20px 30px;
+        border-bottom: 2px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 24px;
+        color: var(--text-primary);
+    }
+
+    .theme-toggle {
+        background-color: var(--button-bg);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .theme-toggle:hover {
+        background-color: var(--button-hover);
+    }
+
+    .main-container {
+        display: flex;
+        height: calc(100vh - 84px);
+    }
+
+    .left-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 2px solid var(--border-color);
+    }
+
+    .right-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--bg-secondary);
+    }
+
+    .toolbar {
+        padding: 15px 20px;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    button {
+        background-color: var(--button-bg);
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+        background-color: var(--button-hover);
+    }
+
+    button:disabled {
+        background-color: #999;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .file-input-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+    }
+
+    .file-input-wrapper input[type=file] {
+        position: absolute;
+        left: -9999px;
+    }
+
+    .file-input-label {
+        background-color: var(--button-bg);
+        color: white;
+        padding: 10px 18px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        display: inline-block;
+        transition: background-color 0.2s;
+    }
+
+    .file-input-label:hover {
+        background-color: var(--button-hover);
+    }
+
+    .editor-container {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+        background-color: var(--bg-editor);
+    }
+
+    .line-numbers {
+        background-color: var(--line-number-bg);
+        color: var(--line-number-text);
+        padding: 15px 10px;
+        text-align: right;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 14px;
+        line-height: 1.5;
+        user-select: none;
+        border-right: 1px solid var(--border-color);
+        overflow-y: scroll;
+        overflow-x: hidden;
+        min-width: 50px;
+        white-space: pre;
+    }
+    
+    .line-numbers::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .line-numbers {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    #codigo {
+        flex: 1;
+        border: none;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 14px;
+        padding: 15px;
+        resize: none;
+        outline: none;
+        background-color: var(--bg-editor);
+        color: var(--text-primary);
+        line-height: 1.5;
+        overflow-y: auto;
+    }
+
+    [data-theme="dark"] #codigo {
+        color: #d4d4d4;
+    }
+
+    .output-header {
+        padding: 15px 20px;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    #resultado {
+        flex: 1;
+        white-space: pre-wrap;
+        background-color: var(--bg-output);
+        color: var(--text-output);
+        padding: 20px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 14px;
+        overflow-y: auto;
+        margin: 0;
+    }
+
+    .examples-section {
+        padding: 15px 20px;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .examples-title {
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: var(--text-primary);
+    }
+
+    .example-btn {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-bottom: 8px;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 10px 15px;
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .example-btn:hover {
+        background-color: var(--button-bg);
+        color: white;
+        border-color: var(--button-bg);
+    }
+
+    @media (max-width: 768px) {
+        .main-container {
+            flex-direction: column;
+        }
+
+        .left-panel, .right-panel {
+            border: none;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .main-container {
+            height: auto;
+        }
+
+        .editor-container, #resultado {
+            min-height: 300px;
+        }
+    }
+</style>
+
+<script>
+    var wasmListo = false;
+    var Module = {
+        onRuntimeInitialized: function() {
+            wasmListo = true;
+            document.getElementById("btnCompilar").disabled = false;
+            document.getElementById("resultado").textContent = 'Compilador listo. Escribe tu código y presiona "Compilar".';
+        }
+    };
+</script>
+
+<script src="Compilador_netSimLang.js"></script>
+
+<script>
+    function toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeButton(newTheme);
+    }
+
+    function updateThemeButton(theme) {
+        const btn = document.getElementById('themeToggle');
+        btn.textContent = theme === 'dark' ? '☀️ Modo Claro' : '🌙 Modo Oscuro';
+    }
+
+    function initTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButton(savedTheme);
+    }
+
+    function updateLineNumbers() {
+        const textarea = document.getElementById('codigo');
+        const lineNumbers = document.getElementById('lineNumbers');
+        const lines = textarea.value.split('\n').length;
+        lineNumbers.innerHTML = Array.from({length: lines}, (_, i) => i + 1).join('\n');
+    }
+
+    function compilar() {
+        if (!wasmListo || typeof Module === 'undefined' || !Module.ccall) {
+            alert("El módulo WebAssembly no está cargado aún.");
+            return;
+        }
+        const input = document.getElementById("codigo").value;
+        const resultadoPtr = Module.ccall('compilarCodigo', 'number', ['string'], [input]);
+        const resultado = Module.UTF8ToString(resultadoPtr);
+        document.getElementById("resultado").textContent = resultado;
+    }
+
+    function limpiar() {
+        document.getElementById("codigo").value = "";
+        document.getElementById("resultado").textContent = "";
+        updateLineNumbers();
+    }
+
+    function cargarArchivo(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const lector = new FileReader();
+        lector.onload = function(e) {
+            document.getElementById("codigo").value = e.target.result;
+            updateLineNumbers();
+        };
+        lector.readAsText(file);
+    }
+
+    function cargarEjemplo(num) {
+        const ejemplos = {
+            1: `agent Normal { props: { opinion: 0.0, sucep: 0.2 } }
+agent Lider { props: { opinion: 1.0, sucep: 0.0 } } // sucep = 0 significa que no cambia
+network Grupo {
+    agents: Lider[10], Normal[190];
+    topology: barabasi_albert(m: 2);
+}
+dynamics Liderazgo {
+    // La regla solo se aplica si el agente B es susceptible
+    on_interaction(A, B) where (B.sucep > 0.0) {
+        B.opinion = B.opinion + (A.opinion - B.opinion) * B.sucep;
+    }
+}
+metrics Adopcion { collect [avg(opinion) as opinion_general] every 1 tick; }
+experiment TestLiderazgo {
+    apply_network: Grupo;
+    apply_dynamics: Liderazgo;
+    apply_metrics: Adopcion;
+    duration: 200 ticks;
+}
+run {
+    result_set res = run_experiment(TestLiderazgo);
+    graph(series: [res.opinion_general], title: "Influencia de Líderes de Opinión");
+}`,
+            2: `agent Ciudadano {
+    props: { opinion: 0.1, sucep: 0.2 }
+}
+network Pais {
+    agents: Ciudadano[1000];
+    topology: barabasi_albert(m: 5);
+}
+dynamics FlujoDeNoticias {
+    on_interaction(A, B) {
+        A.opinion = A.opinion + (B.opinion - A.opinion) * A.sucep;
+    }
+}
+metrics OpinionPublica {
+    collect [avg(opinion) as sentimiento_nacional] every 2 tick;
+}
+experiment CicloInformativo {
+    apply_network: Pais;
+    apply_dynamics: FlujoDeNoticias;
+    apply_metrics: OpinionPublica;
+    duration: 100 ticks;
+}
+run {
+    // En el tick 60, una noticia negativa impacta a la mitad de la población
+    trigger NoticiaDeUltimaHora at_tick(60) {
+        inject(target: "50%", props: {opinion: 0.9});
+    }
+    result_set resultados = run_experiment(CicloInformativo, trigger: [NoticiaDeUltimaHora]);
+    graph(series: [resultados.sentimiento_nacional], title: "Impacto de un Evento 'Shock' en la Opinión Pública");
+}`,
+            3: `agent Consumidor {
+    props: { opinion: 0.0, sucep: 0.6 }
+}
+network Mercado {
+    agents: Consumidor[1200];
+    topology: watts_strogatz(k: 10, p: 0.05);
+}
+dynamics Publicidad {
+    on_interaction(A, B) where (A.opinion > 0.5 and B.opinion <= 0.5) {
+        B.opinion = B.opinion + (A.opinion - B.opinion) * B.sucep;
+    }
+}
+metrics AdopcionProducto {
+    collect [count(opinion > 0.5) as adoptantes] every 5 tick;
+}
+experiment MarketingDirigido {
+    apply_network: Mercado;
+    apply_dynamics: Publicidad;
+    apply_metrics: AdopcionProducto;
+    duration: 100 ticks;
+}
+run {
+    // El trigger inyecta el mensaje inicial solo en los 10 nodos más "puente"
+    trigger CampanaInicial on_start {
+        inject(target: "top(10, 'betweenness_centrality')", props: {opinion: 1.0});
+    }
+    result_set res = run_experiment(MarketingDirigido, trigger: [CampanaInicial]);
+    graph(series: [res.adoptantes], title: "Adopción por Campaña Dirigida a Conectores");
+}`
+        };
+
+        document.getElementById("codigo").value = ejemplos[num];
+        updateLineNumbers();
+    }
+
+    window.onload = function() {
+        initTheme();
+        updateLineNumbers();
+        document.getElementById('codigo').addEventListener('input', updateLineNumbers);
+        document.getElementById('codigo').addEventListener('scroll', function() {
+            document.getElementById('lineNumbers').scrollTop = this.scrollTop;
+        });
+    };
+</script>
+</head>
+
+<body>
+<div class="header">
+    <h1>Compilador netSimLang</h1>
+    <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">🌙 Modo Oscuro</button>
+</div>
+
+<div class="main-container">
+    <div class="left-panel">
+        <div class="toolbar">
+            <button id="btnCompilar" onclick="compilar()" disabled>▶️ Compilar</button>
+            <button onclick="limpiar()">🗑️ Limpiar</button>
+            <div class="file-input-wrapper">
+                <label class="file-input-label" for="fileInput">📁 Cargar archivo</label>
+                <input type="file" id="fileInput" accept=".txt" onchange="cargarArchivo(event)">
+            </div>
+        </div>
+
+        <div class="examples-section">
+            <div class="examples-title">Ejemplos de código:</div>
+            <button class="example-btn" onclick="cargarEjemplo(1)">Agentes "Inflexibles" - Líderes de Opinión</button>
+            <button class="example-btn" onclick="cargarEjemplo(2)">Evento Externo "Shock" a Mitad de Simulación</button>
+            <button class="example-btn" onclick="cargarEjemplo(3)">Campaña de Marketing Dirigida a "Conectores"</button>
+        </div>
+
+        <div class="editor-container">
+            <div class="line-numbers" id="lineNumbers">1</div>
+            <textarea id="codigo" placeholder="Escribe o pega tu código aquí, o carga un ejemplo..."></textarea>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="output-header">💻 Salida del Compilador</div>
+        <pre id="resultado">Cargando compilador...</pre>
+    </div>
+</div>
+
+</body>
+</html>
